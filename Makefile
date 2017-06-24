@@ -13,12 +13,20 @@ objects = loader.o kernel.o
 thekernel.bin: linker.ld $(objects)
 	ld $(LDPARAMS) -T $< -o $@ $(objects)
 
-install: thekernel.bin
+os.iso: thekernel.bin
 	mkdir -p isodir/boot/grub
 	cp thekernel.bin isodir/boot/thekernel.bin
 	cp grub.cfg isodir/boot/grub/grub.cfg
-	grub-mkrescue -o myos.iso isodir
-	qemu-system-i386 -cdrom myos.iso
+	grub-mkrescue --output=$@ isodir
+	rm -rf isodir
+
+install: os.iso
+	qemu-system-i386 -cdrom os.iso &
 
 run: thekernel.bin
-	qemu-system-i386 -kernel thekernel.bin
+	qemu-system-i386 -kernel thekernel.bin &
+
+clean:
+	rm *.o
+	rm *.iso
+	rm *.bin
