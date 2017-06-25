@@ -25,8 +25,8 @@ enum vgaColor {
 }; //vgaColor
 
 //this needs fixing because I cannot figure out how to do it
-uint16_t color(enum vgaColor fg, enum vgaColor bg) {
-	return (fg | bg << 4) << 8 ;
+uint8_t color(enum vgaColor fg, enum vgaColor bg) {
+	return (fg | bg << 4);
 }
 
 static uint16_t* vgaAddress = (uint16_t*)0xB8000;
@@ -36,9 +36,9 @@ static const uint8_t VGA_HEIGHT = 25;
 
 static uint8_t xPos = 0;
 static uint8_t yPos = 0;
-static uint16_t terminalColor;
+static uint8_t terminalColor;
 
-static char oldLines[VGA_HEIGHT][VGA_WIDTH];
+static char buffer[VGA_HEIGHT][VGA_WIDTH];
 
 static uint8_t oldLinesXPos = 0;
 static uint8_t oldLinesYPos = 0;
@@ -46,8 +46,8 @@ static uint8_t oldLinesYPos = 0;
 void printOnPos(char c, uint8_t x, uint8_t y) {
 	if(x <= VGA_WIDTH && y <= VGA_HEIGHT) {
 		uint16_t index = VGA_WIDTH * y + x;
-		//look up how characters should be made because right now i cannot choose color
-		vgaAddress[index] = terminalColor | c;
+		//first two bytes are the color and the last two the character
+		vgaAddress[index] = terminalColor << 8 | c;
 	}
 } //PrintOnPos
 
@@ -89,10 +89,19 @@ void printf(const char string[]) {
 				//move everything one up
 				for(int i = 1; i < 25; i++)
 					for(int j = 0; j < 80; j++)
-						oldLines[i-1][j] = oldLines[i][j];
+						buffer[i-1][j] = buffer[i][j];
 
-				for(int i = 0; i < 24; i++)
-					printf(oldLines[2]);
+				//okay so for some odd reason this is not valid in c++:
+				//char string[] = buffer[i];
+				//so I just copy everything out to get a one dimensional array of chars	
+				for(int i = 0; i < 24; i++) {
+					char string[80];
+					for(int j = 0; j < 80; j++)
+						string[j] = buffer[i][j];
+
+					printf(string);
+					printf("\n");
+				}
 
 			}
 
@@ -108,7 +117,8 @@ void printf(const char string[]) {
 
 		default:
 			printOnPos(string[position], xPos, yPos);
-			oldLines[yPos][xPos] = string[position];
+			if(xPos < 80)
+				buffer[yPos][xPos] = string[position];
 			//go to the next position
 			xPos++;
 			break;
@@ -118,13 +128,10 @@ void printf(const char string[]) {
 } //printf
 
 void clearScrn() {
-	xPos = 0;
-	yPos = 0;
-
 	for(uint8_t i = 0; i < 25; i++) {
 		for(uint8_t j = 0; j < 80; j++) {
 			//basically just print a space on the whole screen
-			printf(" ");
+			printOnPos(' ',j,i);
 		}
 	}
 
@@ -133,29 +140,29 @@ void clearScrn() {
 } //clearScrn
 
 void initBuffer() {
-	for(int i = 0 ; i < 25; i++)
+	for(int i = 0 ; i < 24; i++)
 		for(int j = 0; j< 80; j++)
-			oldLines[i][j] = ' ';
+			buffer[i][j] = ' ';
 }
+
+
+typedef void (*constructor)();
+extern "C" constructor start_ctors;
+extern "C" constructor end_ctors;
+extern "C" void callConstructors() {
+	for(constructor* i = &start_ctors; i != &end_ctors; i++)
+		(*i)();
+}
+
 
 extern "C" void kernelEntry(void* multibootStructure, uint32_t magicNumber) {
 
 	setTerminalColor(VGA_COLOR_LIGHT_CYAN,VGA_COLOR_BLACK);
-	initBuffer();
+	//initBuffer();
 	clearScrn();
 	printf("UselessOS v0.001\n");
 	printf("All rights reserved\n");
-	printf(oldLines[0]);
-	
 
-/*
-	for(uint16_t i = 0; i<20;i++) {
-		printHex(i);
-	}
-
-	printf("Hello World!\n");
-	//printf(oldLines[0]);
-*/
 	//kernel shouldn't return, that doesn't make sense
 	//so it just keeps on going
 	while(1);

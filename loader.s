@@ -9,10 +9,12 @@
 
 .section .text
 .extern kernelEntry
+.extern callConstructors
 .global loader
 
 loader:
 	mov $kernelStack, %esp
+	call callConstructors	#call constructors for all objects
 	push %eax	# multiboot structure with some information about the pc
 	push %ebx	# the magic number
 	call kernelEntry	# jump to kernel, shouldnt come back
