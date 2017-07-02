@@ -1,5 +1,6 @@
-#include <stddef.h>
 #include <stdint.h>
+
+#include "gdt.h"
 
 void clearScrn();
 void printf(const char[]);
@@ -162,6 +163,8 @@ extern "C" void kernelEntry(void* multibootStructure, uint32_t magicNumber) {
 	clearScrn();
 	printf("UselessOS v0.001\n");
 	printf("All rights reserved\n");
+
+	GlobalDescriptorTable gdt;
 
 	//kernel shouldn't return, that doesn't make sense
 	//so it just keeps on going
